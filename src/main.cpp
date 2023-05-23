@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <EasyButton.h>
 #include <BleKeyboard.h>
 
