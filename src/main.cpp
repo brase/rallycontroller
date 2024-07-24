@@ -4,65 +4,102 @@
 
 BleKeyboard bleKeyboard;
 
-EasyButton button1(14);  // Button1 connected to GPIO14
-EasyButton button2(27);  // Button2 connected to GPIO27
-bool b1Pressed = false;
-bool b2Pressed = false;
+struct ButtonConfig
+{
+  EasyButton button;
+  bool isPressed;
+  uint8_t keyCode;
+};
 
-void button1Pressed() {
-  Serial.println("Button 1 pressed");
-  if(b1Pressed){
-    bleKeyboard.release(KEY_MEDIA_VOLUME_UP);
-    b1Pressed = false;
+ButtonConfig buttons[] = {
+    {EasyButton(4), false, KEY_F11},        // Button1 connected to GPIO14
+    {EasyButton(14), false, KEY_F12},       // Button2 connected to GPIO27
+    {EasyButton(15), false, KEY_F10}, // Button3 connected to GPIO4
+    {EasyButton(27), false, KEY_F9},  // Button4 connected to GPIO5
+    {EasyButton(26), false, KEY_F8}      // Button5 connected to GPIO6
+};
+
+void pressButton(ButtonConfig &buttonConfig)
+{
+  if (bleKeyboard.isConnected() && !buttonConfig.isPressed)
+  {
+    bleKeyboard.press(buttonConfig.keyCode);
+    buttonConfig.isPressed = true;
   }
 }
 
-void button2Pressed() {
-  Serial.println("Button 2 pressed");
-  if(b2Pressed){
-    bleKeyboard.release(KEY_MEDIA_VOLUME_DOWN);
-    b2Pressed = false;
+void releaseButton(ButtonConfig &buttonConfig)
+{
+  if (bleKeyboard.isConnected())
+  {
+    bleKeyboard.release(buttonConfig.keyCode);
+    buttonConfig.isPressed = false;
   }
 }
 
-void setup() {
+void handleButtonPress(ButtonConfig &buttonConfig)
+{
+  if (buttonConfig.isPressed)
+  {
+    releaseButton(buttonConfig);
+
+    Serial.print("Button ");
+    Serial.print(buttonConfig.keyCode);
+    Serial.println(" released");
+  }
+}
+
+void handleButton1Press()
+{
+  handleButtonPress(buttons[0]);
+}
+void handleButton2Press()
+{
+  handleButtonPress(buttons[1]);
+}
+void handleButton3Press()
+{
+  handleButtonPress(buttons[2]);
+}
+void handleButton4Press()
+{
+  handleButtonPress(buttons[3]);
+}
+void handleButton5Press()
+{
+  handleButtonPress(buttons[4]);
+}
+
+void setup()
+{
   Serial.begin(115200);
-  button1.begin();
-  button2.begin();
 
-  button1.onPressed(button1Pressed);
-  button2.onPressed(button2Pressed);
+  for (auto &buttonConfig : buttons)
+  {
+    buttonConfig.button.begin();
+  }
+
+  buttons[0].button.onPressed(handleButton1Press);
+  buttons[1].button.onPressed(handleButton2Press);
+  buttons[2].button.onPressed(handleButton3Press);
+  buttons[3].button.onPressed(handleButton4Press);
+  buttons[4].button.onPressed(handleButton5Press);
 
   Serial.println("Starting BLE work!");
   bleKeyboard.begin();
 }
 
-unsigned long lastMessage1 = 0;
-unsigned long lastMessage2 = 0;
+void loop()
+{
+  for (auto &buttonConfig : buttons)
+  {
+    buttonConfig.button.read();
 
-const unsigned long messageInterval = 10;  // Time in milliseconds between messages
+    if (buttonConfig.button.isPressed())
+    {
+      Serial.println(printf("Button %i is currently pressed\n", buttonConfig.keyCode));
 
-void loop() {
-  button1.read();
-  button2.read();
-
-  if (button1.isPressed() && (millis() - lastMessage1 >= messageInterval)) {
-    Serial.println("Button 1 is currently pressed");
-    lastMessage1 = millis();  // Update the time of the last message
-
-    if(bleKeyboard.isConnected() && !b1Pressed){
-      b1Pressed = true;
-      bleKeyboard.press(KEY_MEDIA_VOLUME_UP);
-    }
-  }
-
-  if (button2.isPressed() && (millis() - lastMessage2 >= messageInterval)) {
-    Serial.println("Button 2 is currently pressed");
-    lastMessage2 = millis();  // Update the time of the last message
-
-    if(bleKeyboard.isConnected() && !b2Pressed ){
-      b2Pressed = true;
-      bleKeyboard.press(KEY_MEDIA_VOLUME_DOWN);
+      pressButton(buttonConfig);
     }
   }
 }
